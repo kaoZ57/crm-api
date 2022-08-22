@@ -19,7 +19,8 @@ trait CommonApiResponse
         return response()->json([
             'success' => $status,
             'message' => $message,
-            'result'    => $data
+            'result'    => $data,
+            'status'    => $code,
         ], $code);
     }
 }

@@ -17,14 +17,14 @@ class RoleTableSeeder extends Seeder
     {
         //DB::table('roles')->truncate();
         $roles = array(
-          array(
-              'name' => 'admin',
-              'guard_name' => 'api'
-          ),
-          array(
-              'name' => 'user',
-              'guard_name' => 'api'
-          ),
+            array(
+                'name' => 'admin',
+                'guard_name' => 'api'
+            ),
+            array(
+                'name' => 'user',
+                'guard_name' => 'api'
+            ),
         );
         Role::insert($roles);
     }
