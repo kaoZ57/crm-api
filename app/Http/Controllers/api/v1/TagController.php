@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AccessController;
+use App\Models\Store_members;
 
 class TagController extends Controller
 {
@@ -33,8 +34,7 @@ class TagController extends Controller
                 ]);
                 return $this->commonResponse(true, 'Tag Created successfully', $response, Response::HTTP_CREATED);
             }
-
-            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_OK); //แก้
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
@@ -43,13 +43,14 @@ class TagController extends Controller
         }
     }
 
-    public function show(): JsonResponse
+    public function show(int $id): JsonResponse
     {
         try {
-
-            $tag = tag::all();
-
-            return $this->commonResponse(true, 'show successfully', $tag, Response::HTTP_OK);
+            if (AccessController::access_staff($id) || AccessController::access_member($id)) {
+                $tag = tag::where('store_id', '=', $id)->get();
+                return $this->commonResponse(true, 'show successfully', $tag, Response::HTTP_OK);
+            }
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
@@ -60,17 +61,16 @@ class TagController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
-
+        $request->validate([
+            'name' => 'required|string',
+        ]);
         try {
-            if (AccessController::access_staff($request['store_id'])) {
-
-                $tag = Tag::find($id);
-                $store = Store::find($id);
+            $tag = Tag::find($id);
+            $store = Store::find($tag['store_id']);
+            if (AccessController::access_staff($tag['store_id'])) {
 
                 $tag->update([
                     'name' => $request['name'],
-                    'store' => $request['store_id'],
-
                 ]);
 
                 $user = User::find($store['users_id']);
@@ -78,13 +78,14 @@ class TagController extends Controller
 
                 $response = [
                     'name' => $tag['name'],
-                    'user' => $user['name'],
+                    'owner' => $user['name'],
                     'store_id' => $tag['store_id'],
+                    'store_name' => $store['name'],
                 ];
                 return $this->commonResponse(true, 'update successfully', $response, Response::HTTP_OK);
             }
 
-            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_OK); //แก้
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {

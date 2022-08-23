@@ -105,7 +105,7 @@ class StoreController extends Controller
 
                 return $this->commonResponse(true, 'you can uppdate this store', $response, Response::HTTP_OK);
             }
-            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_OK); //แก้
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
@@ -125,7 +125,7 @@ class StoreController extends Controller
         ]);
 
         try {
-            if (AccessController::access_owner($id)) {
+            if (AccessController::access_owner($request['store_id'])) {
                 $store = Store::find($request['store_id']);
 
                 if (Auth::user()->id != $store['users_id']) {
@@ -142,7 +142,7 @@ class StoreController extends Controller
 
                 return $this->commonResponse(true, 'update successfully', $response, Response::HTTP_OK);
             }
-            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_OK); //แก้
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {

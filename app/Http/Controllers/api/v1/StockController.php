@@ -15,42 +15,43 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AccessController;
+use App\Models\Item;
+use Carbon\Carbon;
 
 class StockController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'item_id' => 'required|int',
-            'amount' => 'required|int ',
-            //'updated_by' => 'int',
+            'item_id' => 'required|integer',
+            'amount' => 'required|numeric ',
         ]);
 
         try {
 
-            $store = Store::find($request['user_id']);
+            $item_store = Item::find($request['item_id']);
 
-            $stocker = DB::table('stock')
-                ->join('item', 'stock.item_id', '=', 'item_id')
-                ->select('item.store_id', 'item.name', 'item.description', 'item.is_active', 'item.updated_by', 'item.amount',)
-                ->get();
+            if (AccessController::access_staff($item_store['store_id'])) {
+                $stock = Stock::create([
+                    'item_id' => $request['item_id'],
+                    'amount' => $request['amount'],
 
-            $stock = Stock::create([
-                'item_id' => $request['item_id'],
-                'amount' => $request['amount'],
+                ]);
 
-            ]);
+                $item = Item::find($stock['item_id']);
+                $item->update([
+                    'amount' => $item['amount'] + $stock['amount'],
+                    'amount_update_at' => Carbon::now()->setTimezone('Asia/Bangkok')->toDateTimeString(),
+                ]);
 
-            $response = [
-                'item_id' => $stock['item_id'],
-                'amount' => $stock['amount'],
-                'Item' =>  $stocker,
+                $response = [
+                    'item' => $item,
+                    'stock' => $stock,
 
-            ];
-
-            return $this->commonResponse(true, 'Stock Created Successfully', $response, Response::HTTP_CREATED);
-
-            //sreturn $this->commonResponse(false, 'you are not staff in this store', '', Response::HTTP_NOT_FOUND);
+                ];
+                return $this->commonResponse(true, 'Stock Created Successfully', $response, Response::HTTP_CREATED);
+            }
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {

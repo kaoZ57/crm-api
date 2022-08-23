@@ -30,7 +30,7 @@ class ItemController extends Controller
         ]);
 
         try {
-            if (AccessController::access_owner($request['store_id']) || AccessController::access_staff($request['store_id'])) {
+            if (AccessController::access_staff($request['store_id'])) {
                 $item = Item::create([
                     'name' => $request['name'],
                     'description' => $request['description'],
@@ -39,10 +39,11 @@ class ItemController extends Controller
                     'is_active' => $request['is_active'],
                     'is_not_return' => $request['is_not_return'],
                     'updated_by' => Auth::user()->id,
-                    'amount_update_at' => Carbon::now()->toDateTimeString(),
+                    'amount_update_at' => Carbon::now()->setTimezone('Asia/Bangkok')->toDateTimeString(),
                 ]);
-                $name = User::find($item['updated_by']);
+
                 $response = [
+                    'id' => $item['id'],
                     'name' => $item['name'],
                     'description' => $item['description'],
                     'store_id' => $item['store_id'],
@@ -50,12 +51,12 @@ class ItemController extends Controller
                     'is_active' => $item['is_active'],
                     'is_not_return' => $item['is_not_return'],
                     'updated_by' => $item['updated_by'],
-                    'updated_by_name' => $name['name'],
+                    'updated_by_name' => User::find($item['updated_by'])->name,
                 ];
 
                 return $this->commonResponse(true, 'Create successfully', $response, Response::HTTP_CREATED);
             }
-            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_OK); //แก้
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
@@ -64,13 +65,15 @@ class ItemController extends Controller
         }
     }
 
-    public function show(): JsonResponse
+    public function show(int $id): JsonResponse
     {
         try {
+            if (AccessController::access_staff($id) || AccessController::access_member($id)) {
+                $store = Item::where('store_id', '=', $id)->get();
+                return $this->commonResponse(true, 'show successfully', $store, Response::HTTP_OK);
+            }
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
 
-            $store = Item::all();
-
-            return $this->commonResponse(true, 'show successfully', $store, Response::HTTP_OK);
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
@@ -93,7 +96,7 @@ class ItemController extends Controller
         try {
             $store = Store::find($item['store_id']);
 
-            if (AccessController::access_owner($request['store_id']) || AccessController::access_staff($request['store_id'])) {
+            if (AccessController::access_owner($store['id']) || AccessController::access_staff($store['id'])) {
 
                 $item->update([
                     'name' => $request['name'],
@@ -103,7 +106,7 @@ class ItemController extends Controller
                 ]);
                 return $this->commonResponse(true, 'update successfully', $item, Response::HTTP_OK);
             }
-            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_OK); //แก้
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
 
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);

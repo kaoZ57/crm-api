@@ -15,18 +15,16 @@ use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\AccessController;
 
-class Store_Member_Controller extends Controller
+class StoreMemberController extends Controller
 {
     public function store(int $id): JsonResponse
     {
 
         try {
 
-            $approve = 0;
-
             $statusArr = Status::where('table_name', 'like', 'store_members')->get();
-
             $memberArr = Store_members::where('store_id', '=', $id)->get();
 
             //check
@@ -36,12 +34,15 @@ class Store_Member_Controller extends Controller
                 }
             }
 
-            $store = Store::find($id);
-            if (Auth::user()->id == $store['users_id']) {
+            if (AccessController::access_owner($id) || AccessController::access_staff($id)) {
                 return $this->commonResponse(true, 'can not follow you are owner in this store', '', Response::HTTP_NOT_FOUND);
             }
 
-            if ($store['follow_approve'] == 0) {
+            $store = Store::find($id);
+            $approve = 0;
+            if ($store['follow_approve'] == 1) {
+                $approve = 0;
+            } elseif ($store['follow_approve'] == 0) {
                 $approve = 1;
             }
 
@@ -57,7 +58,8 @@ class Store_Member_Controller extends Controller
             $response = [
                 'id' => $store_members['id'],
                 'users' => Auth::user()->name,
-                'store' => Store::find($id)->name,
+                'store_id' => $store_members['store_id'],
+                'store_name' => Store::find($store_members['store_id'])->name,
                 'status' => Status::find($store_members['status_id'])->name,
                 'is_active' => $store_members['is_active'],
                 'update_date' => $store_members['update_date']
@@ -74,29 +76,27 @@ class Store_Member_Controller extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $store = Store::find($id);
 
         try {
-            $store = Store::find($id);
+            if (AccessController::access_staff($id)) {
+                // $membersArr = Store_members::where('store_id', '=', $id)->get();
 
-            if (Auth::user()->id != $store['users_id']) {
-                return $this->commonResponse(true, 'you are not owner in this store', '', Response::HTTP_NOT_FOUND);
+                $membersArr = DB::table('store_members')
+                    ->join('users', 'store_members.users_id', '=', 'users.id')
+                    ->join('store', 'store_members.store_id', '=', 'store.id')
+                    ->join('status', 'store_members.status_id', '=', 'status.id')
+                    ->where('store_id', '=', $id)
+                    ->select('store_members.id', 'store_members.users_id', 'store_members.store_id', 'store_members.status_id', 'users.name as users_name', 'store.name as store_name', 'status.name as status_name', 'store_members.is_active')
+                    ->get();
+
+                $response = [
+                    'members' => $membersArr,
+                ];
+
+                return $this->commonResponse(true, 'show successfully', $response, Response::HTTP_OK);
             }
 
-            // $membersArr = Store_members::where('store_id', '=', $id)->get();
-
-            $membersArr = DB::table('store_members')
-                ->join('users', 'store_members.users_id', '=', 'users.id')
-                ->join('store', 'store_members.store_id', '=', 'store.id')
-                ->join('status', 'store_members.status_id', '=', 'status.id')
-                ->select('store_members.users_id', 'store_members.store_id', 'store_members.status_id', 'users.name as users_name', 'store.name as store_name', 'status.name as status_name', 'store_members.is_active')
-                ->get();
-
-            $response = [
-                'members' => $membersArr,
-            ];
-
-            return $this->commonResponse(true, 'show successfully', $response, Response::HTTP_OK);
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
@@ -108,16 +108,33 @@ class Store_Member_Controller extends Controller
     public function update(int $id)
     {
         try {
+            $store_members = Store_members::find($id);
+            if (!$store_members) {
+                return $this->commonResponse(true, 'show successfully', 'ไม่มีข้อมูล', Response::HTTP_OK);
+            }
+            if ($store_members['status_id'] == 10) {
+                return $this->commonResponse(true, 'show successfully', 'คนนี้อนุมัตแล้ว', Response::HTTP_OK);
+            }
+            if (AccessController::access_staff($store_members['store_id'])) {
+                $members = Store_members::find($id);
+                $members->update(array('status_id' => 10));
 
-            $members = Store_members::where('users_id', $id);
-            $membersData = Store_members::find($members['id']);
-            $members->update(array('status_id' => 10));
+                $response = [
+                    'id' => $members['id'],
+                    'users_id' => $members['users_id'],
+                    'store_id' => $members['store_id'],
+                    'status_id' => $members['status_id'],
+                    'is_active' => $members['is_active'],
+                    'updated_by' => Auth::user()->id,
+                    'update_date' => $members['update_date'],
+                    'users_name' => User::find($members['users_id'])->name,
+                    'store_name' => Store::find($members['store_id'])->name,
+                    'status_name' => Status::find($members['status_id'])->name,
+                ];
 
-            $response = [
-                'members' => $membersData,
-            ];
-
-            return $this->commonResponse(true, 'show successfully', $response, Response::HTTP_OK);
+                return $this->commonResponse(true, 'show successfully', $response, Response::HTTP_OK);
+            }
+            return $this->commonResponse(true, 'ไม่มีสิทธิ', '', Response::HTTP_FORBIDDEN); //แก้
         } catch (QueryException $exception) {
             return $this->commonResponse(false, $exception->errorInfo[2], '', Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $exception) {
