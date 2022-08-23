@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Validator;
 use Psy\Util\Json;
 use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
+use App\Models\Store_members;
 
 /**
  * User Management
@@ -109,12 +110,15 @@ class UserController extends Controller
             if (!$user) {
                 return $this->commonResponse(false, 'User Not Found', '', Response::HTTP_NOT_FOUND);
             }
+            $store_members = Store_members::where('users_id', '=', Auth::user()->id)->where('status_id', '=', 10)->get();
+
 
             $response = [
                 'id' => $user['id'],
                 'user' => $user['name'],
                 'email' => $user['email'],
-                'roles' => $user['roles']
+                'roles' => $user['roles'],
+                'members' => $store_members
             ];
             return $this->commonResponse(true, 'User Details', $response, Response::HTTP_OK);
         } catch (QueryException $exception) {
